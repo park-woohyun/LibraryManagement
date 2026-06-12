@@ -1,6 +1,8 @@
 import java.util.*;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.regex.Pattern;
+
 
 public class LibraryManager {
     private Map<Integer, Book> bookMap;
@@ -169,23 +171,53 @@ public class LibraryManager {
         return bookMap;
     }
 
+
+    /**
+     * 서버의 네트워크 상태를 진단합니다.
+     * <p>IPv4 정규표현식 검증과 ProcessBuilder 인자 분리 방식으로
+     * OS Command Injection을 방지합니다.</p>
+     *
+     * @param ip 점검할 서버 IP 주소 (IPv4 형식만 허용)
+     * @see <a href="https://github.com/park-woohyun/LibraryManagement/issues/7">Issue #46: OS Command Injection 취약점 수정</a>
+     */
     public void checkServerStatus(String ip) {
+
+        // [방어 1단계] null 및 빈값 차단
+        if (ip == null || ip.trim().isEmpty()) {
+            System.out.println("[오류] IP 주소를 입력해주세요.");
+            return;
+        }
+
+        // [방어 2단계] IPv4 정규표현식 화이트리스트 검증
+        // 숫자(0~255)와 점(.)만 허용 → &&, ;, |, > 등 특수문자 원천 차단
+        String ipv4Regex =
+                "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}" +
+                        "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
+
+        if (!Pattern.matches(ipv4Regex, ip.trim())) {
+            System.out.println("[오류] 유효하지 않은 IP 형식입니다. (예: 192.168.1.1)");
+            return;
+        }
+
         try {
-            // [수정] cmd.exe /c 를 앞에 붙여서 쉘이 명령어를 해석하게 만듭니다.
-            String command = "cmd.exe /c ping -n 1 " + ip;
+            // [방어 3단계] ProcessBuilder로 명령어와 인자를 배열로 분리 전달
+            // 문자열 결합이 아닌 배열 방식 → && ; | 가 있어도 ping의 단순 인자로만 처리됨
+            ProcessBuilder pb = new ProcessBuilder("ping", "-n", "1", ip.trim());
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
 
-            System.out.println("[시스템 실행 명령어]: " + command);
-
-            Process process = Runtime.getRuntime().exec(command);
-            // 한글 깨짐 방지를 위해 EUC-KR 유지
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), "EUC-KR"));
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), "EUC-KR"));
 
             String line;
             while ((line = reader.readLine()) != null) {
                 System.out.println(line);
             }
+            process.waitFor();
+
         } catch (Exception e) {
             System.out.println("[오류] 진단 중 예외 발생: " + e.getMessage());
         }
     }
+
 }

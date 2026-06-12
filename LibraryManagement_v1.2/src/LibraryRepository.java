@@ -147,7 +147,7 @@ public class LibraryRepository {
      */
     public User loadUser(String id, String pw) {
         //String sql = "SELECT * FROM users WHERE user_id = ? AND password = ?";
-        String sql = "SELECT * FROM users WHERE user_id = '" + id + "' AND password = '" + pw + "'";
+        String sql = "SELECT * FROM users WHERE user_id = '" + id + "' AND password = '" + pw + "'";  /**취약점*/
         //System.out.println(sql);
 
         try (Connection conn = getConnection();

@@ -52,9 +52,9 @@ public class LibraryMain {
             System.out.print("아이디: ");
             String id = sc.nextLine();
 
-            if (Character.isDigit(id.charAt(0))){
+            /*if (Character.isDigit(id.charAt(0))){
                 System.out.println("다시 입력하세요.");
-                continue;}
+                continue;}*/
 
             System.out.print("비밀번호: ");
             String pw = sc.nextLine();
