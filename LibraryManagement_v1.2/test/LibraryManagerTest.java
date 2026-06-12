@@ -183,35 +183,58 @@ class LibraryManagerTest {
      * <li>파일 생성에 성공했다면, 이는 공격자가 서버에서 임의의 코드를 실행하거나 데이터를 파괴할 수 있는 상태임을 입증합니다.</li>
      * </ul>
      *
-     * @author Suman Nam
-     * @see LibraryManager#checkServerStatus(String)
-     * @see <a href="https://cwe.mitre.org/data/definitions/78.html">CWE-78: OS Command Injection</a>
      *
-     * @see <a href="https://github.com/sumannam/Java/issues/43">Issue #43: OS Command Injection 취약점 개발</a>
+     /**
+     * OS Command Injection 취약점 수정 후 방어 성공 여부를 검증합니다.
+     *
+     * @see <a href="https://github.com/park-woohyun/LibraryManagement/issues/9">Issue #46</a>
      */
     @Test
-    @DisplayName("보안 테스트: OS Command Injection을 통한 임의 파일 생성")
-    void osCommandInjectionTest() {
-        // Given: 핑 명령어 뒤에 'vuln.txt' 파일을 만드는 명령어를 삽입 (Windows 기준)
+    @DisplayName("[수정 후] OS Command Injection 공격 차단 검증")
+    void osCommandInjectionDefenseTest() {
+        // Given: 파일 생성 명령어 주입 페이로드
         String fileName = "vuln.txt";
         String payload = "127.0.0.1 && echo hacked > " + fileName;
+        new File(fileName).delete(); // 사전 정리
 
-        // When: 취약한 서버 진단 기능 실행
+        // When: 수정된 checkServerStatus() 호출
         manager.checkServerStatus(payload);
 
-        // Then: 주입된 명령어(echo hacked > vuln.txt)가 실행되어 파일이 생성되었는지 확인
-        File injectedFile = new File(fileName);
-        boolean isVulnerable = injectedFile.exists();
-
-        // 테스트 완료 후 생성된 파일 삭제 (흔적 제거)
-        if (isVulnerable) {
-            injectedFile.delete();
-        }
-
-        assertTrue(isVulnerable, "취약점 발견: OS 명령어가 주입되어 임의의 파일이 생성되었습니다.");
-
-        if (isVulnerable) {
-            System.out.println("[경고] OS Command Injection 공격 성공: 서버 내에서 임의 명령어가 실행되었습니다.");
-        }
+        // Then: IP 검증 실패로 명령어 미실행 → 파일 미생성
+        assertFalse(new File(fileName).exists(),
+                "[방어 성공] 악성 페이로드가 차단되어 파일이 생성되지 않아야 합니다.");
+        System.out.println("[검증 완료] OS Command Injection이 성공적으로 차단되었습니다.");
     }
+
+    @Test
+    @DisplayName("[수정 후] 다양한 명령어 주입 패턴 차단 확인")
+    void multipleCommandInjectionPatternBlockTest() {
+        String[] attackPayloads = {
+                "127.0.0.1 && dir",       // && 구분자
+                "127.0.0.1; whoami",      // ; 구분자
+                "127.0.0.1 | ipconfig",   // | 파이프
+                "127.0.0.1 > output.txt", // 리다이렉션
+                "999.999.999.999",         // 범위 초과 IP
+                "abc.def.ghi.jkl",        // 문자 IP
+                " ",                       // 공백
+                null                       // null
+        };
+
+        for (String payload : attackPayloads) {
+            assertDoesNotThrow(() -> manager.checkServerStatus(payload),
+                    "[취약] 예외 미처리 페이로드: " + payload);
+        }
+        System.out.println("[검증 완료] 모든 명령어 주입 패턴이 차단되었습니다.");
+    }
+
+    @Test
+    @DisplayName("[수정 후] 유효한 IPv4 주소 정상 처리 확인 (회귀 테스트)")
+    void validIpv4AcceptanceTest() {
+        assertDoesNotThrow(() -> manager.checkServerStatus("127.0.0.1"),
+                "유효한 IP(127.0.0.1) 처리 중 예외 발생 안됨");
+        assertDoesNotThrow(() -> manager.checkServerStatus("192.168.0.1"),
+                "유효한 IP(192.168.0.1) 처리 중 예외 발생 안됨");
+        System.out.println("[검증 완료] 유효한 IP 주소가 정상 처리되었습니다.");
+    }
+
 }
