@@ -117,10 +117,11 @@ public class LibraryManager {
 
     /**
      * 도서 반납 처리를 수행합니다.
-     * <p>도서가 대출 중인 상태일 경우, 상태를 대출 가능으로 변경하고 대출자 정보를 초기화합니다.</p>
+     * <p>반납 요청자가 실제 대출자와 동일한지 검증 후 반납 처리합니다.</p>
      *
      * @param id 반납할 도서 ID
      * @return 반납 성공 여부
+     * @see <a href="https://github.com/park-woohyun/LibraryManagement/issues/11">Issue #11: 반납 시 대출자 본인 확인 검증</a>
      */
     public boolean returnBook(int id) {
         if (!bookMap.containsKey(id))
@@ -128,12 +129,20 @@ public class LibraryManager {
 
         Book book = bookMap.get(id);
         if (!book.isAvailable()) {
+
+            // 핵심 수정: 현재 로그인 사용자 == 실제 대출자 검증
+            if (!currentUser.getUserId().equals(book.getBorrowerId())) {
+                System.out.println("[오류] 본인이 대출한 도서만 반납할 수 있습니다.");
+                return false;
+            }
+
             book.setAvailable(true);
             book.setBorrowerId("null");
             return true;
         }
         return false;
     }
+
 
     /**
      * 제목 키워드를 사용하여 도서를 검색합니다.

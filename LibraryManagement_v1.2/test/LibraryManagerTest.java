@@ -237,4 +237,48 @@ class LibraryManagerTest {
         System.out.println("[검증 완료] 유효한 IP 주소가 정상 처리되었습니다.");
     }
 
+    /**
+     * 타인의 도서를 무단으로 반납 시도할 경우 차단되는지 검증합니다.
+     *
+     * @see <a href="https://github.com/park-woohyun/LibraryManagement/issues/11">Issue #11</a>
+     */
+    @Test
+    @DisplayName("[수정 후] 타인 도서 무단 반납 차단 검증")
+    void returnBookByOtherUserBlockTest() {
+        // Given: user1이 도서를 대출
+        manager.login("user1", "2222");
+        int targetId = manager.getBookCount();
+        manager.borrowBook(targetId);
+        assertEquals("user1", manager.getBookMap().get(targetId).getBorrowerId());
+
+        // When: user2가 동일 도서 반납 시도
+        manager.login("user2", "3333");
+        boolean result = manager.returnBook(targetId);
+
+        // Then: 대출자 불일치로 반납 실패해야 함
+        assertFalse(result, "[방어 성공] 타인의 도서는 반납할 수 없어야 합니다.");
+        assertFalse(manager.getBookMap().get(targetId).isAvailable(), "도서는 여전히 대출 중이어야 합니다.");
+        assertEquals("user1", manager.getBookMap().get(targetId).getBorrowerId(), "대출자는 여전히 user1이어야 합니다.");
+        System.out.println("[검증 완료] 타인의 도서 무단 반납이 성공적으로 차단되었습니다.");
+    }
+
+    @Test
+    @DisplayName("[수정 후] 본인 도서 정상 반납은 성공해야 함 (회귀 테스트)")
+    void returnBookByOwnerSuccessTest() {
+        // Given: user1이 도서를 대출
+        manager.login("user1", "2222");
+        int targetId = manager.getBookCount();
+        manager.borrowBook(targetId);
+
+        // When: user1 본인이 반납 시도
+        boolean result = manager.returnBook(targetId);
+
+        // Then: 본인 반납은 성공해야 함
+        assertTrue(result, "[정상] 본인 대출 도서는 반납 가능해야 합니다.");
+        assertTrue(manager.getBookMap().get(targetId).isAvailable(), "반납 후 도서는 대출 가능 상태여야 합니다.");
+        assertEquals("null", manager.getBookMap().get(targetId).getBorrowerId(), "반납 후 대출자 정보는 초기화되어야 합니다.");
+        System.out.println("[검증 완료] 본인 도서 정상 반납이 확인되었습니다.");
+    }
+
+
 }
